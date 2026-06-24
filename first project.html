@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediAI Virtual Assistant</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons for aesthetic and clear UI elements -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom scrollbar for chat window */
+        #chat-window::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chat-window::-webkit-scrollbar-thumb {
+            background-color: #94a3b8; /* Slate 400 */
+            border-radius: 3px;
+        }
+        #chat-window {
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 transparent;
+            scroll-behavior: smooth;
+        }
+        /* Inter font for modern feel */
+        body { font-family: 'Inter', sans-serif; }
+
+        /* Custom styles for chat bubbles */
+        .ai-bubble {
+            background-color: #f0fdfa; /* Lightest mint/teal */
+            color: #0f766e; /* Dark teal text */
+            border: 1px solid #ccfbf1; /* Border for definition */
+            border-radius: 1.5rem 1.5rem 1.5rem 0.5rem;
+            padding: 1rem;
+            max-width: 85%;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); /* Soft shadow */
+        }
+        .user-bubble {
+            background-color: #3b82f6; /* Blue */
+            color: white;
+            border-radius: 1.5rem 1.5rem 0.5rem 1.5rem;
+            padding: 1rem;
+            max-width: 85%;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+
+        /* ACCESSIBILITY: High Contrast Mode */
+        .high-contrast {
+            background-color: #000 !important;
+            color: #fff !important;
+        }
+        .high-contrast .bg-white {
+            background-color: #000 !important;
+            color: #fff !important;
+            border-color: #fff !important;
+        }
+        .high-contrast .text-gray-700, .high-contrast .text-teal-700, .high-contrast .text-gray-600 {
+            color: #fff !important;
+        }
+        .high-contrast .bg-gray-100 {
+             background-color: #111 !important;
+        }
+        .high-contrast .ai-bubble {
+            background-color: #000 !important;
+            color: #ffff00 !important; /* Bright yellow text for contrast */
+            border-color: #fff !important;
+        }
+        .high-contrast .user-bubble {
+            background-color: #fff !important;
+            color: #000 !important;
+        }
+        .high-contrast .shadow-2xl, .high-contrast .shadow-md, .high-contrast .shadow-lg {
+            box-shadow: none !important;
+            border: 1px solid #fff;
+        }
+        .high-contrast .border-b, .high-contrast .border-t, .high-contrast .border {
+            border-color: #fff !important;
+        }
+        .high-contrast input, .high-contrast select, .high-contrast textarea {
+            background-color: #222 !important;
+            border-color: #fff !important;
+            color: #fff !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col lg:flex-row" id="app-body">
+
+    <!-- Tailwind Config for Inter Font -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <!-- Sidebar: Patient Details & Feature Quick-Access -->
+    <div id="sidebar" class="w-full lg:w-80 bg-white shadow-2xl p-6 flex flex-col space-y-6 flex-shrink-0">
+        <h1 class="text-3xl font-extrabold text-teal-700 flex items-center border-b pb-4">
+            <i data-lucide="heart-pulse" class="w-7 h-7 mr-2"></i> MediAI
+        </h1>
+        
+        <!-- 1. Patient Details Card -->
+        <div id="patient-details-card" class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-xl shadow-md">
+            <h2 class="font-bold text-blue-700 mb-3 text-lg">Patient Information (1)</h2>
+            <form id="patient-form" class="space-y-3 text-sm">
+                <input type="text" id="p_name" placeholder="Full Name" required class="w-full p-2.5 border border-blue-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition">
+                <input type="number" id="p_age" placeholder="Age" required class="w-full p-2.5 border border-blue-200 rounded-lg">
+                <input type="number" id="p_weight" placeholder="Weight (kg)" required class="w-full p-2.5 border border-blue-200 rounded-lg">
+                <input type="text" id="p_address" placeholder="Address/Location" class="w-full p-2.5 border border-blue-200 rounded-lg">
+                <input type="tel" id="p_contact" placeholder="Contact Number" class="w-full p-2.5 border border-blue-200 rounded-lg">
+                <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-xl font-semibold hover:bg-blue-700 transition duration-200 shadow-md">Save Details</button>
+            </form>
+            <div id="details-summary" class="hidden text-sm pt-2"></div>
+        </div>
+
+        <!-- 2. Quick Action Buttons (Mapping to Features) -->
+        <h2 class="font-bold text-gray-700 mt-4 border-t pt-4 text-lg">Quick Actions</h2>
+        <div class="grid grid-cols-2 gap-3">
+            <!-- Feature 2: Symptom Check -->
+            <button onclick="quickAction('symptoms')" class="flex flex-col items-center justify-center p-3 bg-white text-gray-700 rounded-xl hover:bg-teal-50 hover:shadow-lg transition duration-200 border border-gray-200 shadow-sm text-center">
+                <i data-lucide="stethoscope" class="w-6 h-6 mb-1 text-teal-600"></i> Symptom Check (2)
+            </button>
+            <!-- Feature 3: Medicine Support -->
+            <button onclick="quickAction('medicine')" class="flex flex-col items-center justify-center p-3 bg-white text-gray-700 rounded-xl hover:bg-green-50 hover:shadow-lg transition duration-200 border border-gray-200 shadow-sm text-center">
+                <i data-lucide="pill" class="w-6 h-6 mb-1 text-green-600"></i> Medicine Support (3)
+            </button>
+            <!-- Feature 4: Appointment/Follow-up -->
+            <button onclick="quickAction('appointment')" class="flex flex-col items-center justify-center p-3 bg-white text-gray-700 rounded-xl hover:bg-amber-50 hover:shadow-lg transition duration-200 border border-gray-200 shadow-sm text-center">
+                <i data-lucide="calendar" class="w-6 h-6 mb-1 text-amber-600"></i> Book Appt (4)
+            </button>
+            <!-- Feature 5/12: Chronic Log & Preventive Health -->
+            <button onclick="quickAction('log_chronic')" class="flex flex-col items-center justify-center p-3 bg-white text-gray-700 rounded-xl hover:bg-rose-50 hover:shadow-lg transition duration-200 border border-gray-200 shadow-sm text-center">
+                <i data-lucide="activity" class="w-6 h-6 mb-1 text-rose-600"></i> Log Reading (5/12)
+            </button>
+            <!-- Feature 6: Mental Support -->
+            <button onclick="quickAction('mental')" class="flex flex-col items-center justify-center p-3 bg-white text-gray-700 rounded-xl hover:bg-indigo-50 hover:shadow-lg transition duration-200 border border-gray-200 shadow-sm text-center">
+                <i data-lucide="smile" class="w-6 h-6 mb-1 text-indigo-600"></i> Mental Support (6)
+            </button>
+            <!-- Feature 7: Medical Record Assistant -->
+            <button onclick="quickAction('records')" class="flex flex-col items-center justify-center p-3 bg-white text-gray-700 rounded-xl hover:bg-purple-50 hover:shadow-lg transition duration-200 border border-gray-200 shadow-sm text-center">
+                <i data-lucide="folder-open" class="w-6 h-6 mb-1 text-purple-600"></i> Med Records (7)
+            </button>
+            <!-- Feature 8: Doctor Connection -->
+            <button onclick="quickAction('doctor_connect')" class="flex flex-col items-center justify-center p-3 bg-white text-gray-700 rounded-xl hover:bg-sky-50 hover:shadow-lg transition duration-200 border border-gray-200 shadow-sm text-center">
+                <i data-lucide="user-plus" class="w-6 h-6 mb-1 text-sky-600"></i> Doctor Connect (8)
+            </button>
+            <!-- Feature 11: Post-Treatment Care -->
+            <button onclick="quickAction('post_care')" class="flex flex-col items-center justify-center p-3 bg-white text-gray-700 rounded-xl hover:bg-slate-50 hover:shadow-lg transition duration-200 border border-gray-200 shadow-sm text-center">
+                <i data-lucide="bed" class="w-6 h-6 mb-1 text-slate-600"></i> Post-Care Plan (11)
+            </button>
+        </div>
+
+        <!-- 3. Emergency Button (Feature 9) -->
+        <button onclick="emergencyHelp()" class="mt-auto w-full flex items-center justify-center p-4 bg-red-600 text-white font-bold rounded-2xl hover:bg-red-700 transition duration-200 shadow-xl shadow-red-300/50">
+            <i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i> 🚨 EMERGENCY HELP (9)
+        </button>
+
+        <!-- 4. Privacy Disclaimer (Feature 13) -->
+        <div class="text-xs text-gray-500 mt-4 p-2 border-t pt-3">
+            <h3 class="font-semibold text-gray-600">Privacy & Trust (13)</h3>
+            <p>Your data is kept confidential and is used only to provide contextual assistance. We prioritize your privacy.</p>
+        </div>
+    </div>
+
+    <!-- Main Content: Chat Interface -->
+    <div class="flex-1 flex flex-col p-4 bg-gray-100">
+        <div class="bg-white rounded-2xl shadow-3xl flex flex-col flex-1 overflow-hidden">
+            
+            <!-- Chat Header -->
+            <div class="p-4 border-b bg-teal-600 text-white flex items-center justify-between shadow-md">
+                <h2 class="text-xl font-semibold">MediAI Chat Interface</h2>
+                <!-- Feature 10: Multi-Language & Accessibility Button -->
+                <button id="language-btn" onclick="showAccessibilityModal()" 
+                            class="bg-teal-700/50 text-white px-3 py-2 rounded-lg hover:bg-teal-700 transition duration-150 flex items-center shadow-inner font-medium text-sm" title="Multi-Language & Accessibility Options (10)">
+                        <i data-lucide="accessibility" class="w-5 h-5 mr-1"></i>
+                        Accessibility (10)
+                </button>
+            </div>
+            
+            <!-- Language Status Bar (Feature 10) -->
+            <div id="language-status-bar" class="p-2 bg-indigo-50 border-b border-indigo-200 text-indigo-700 hidden items-center justify-center transition-all duration-300">
+                <i data-lucide="earth" class="w-4 h-4 mr-2"></i>
+                <p id="language-status-text" class="text-sm font-medium">Language Mode: English. Responses will be in English.</p>
+            </div>
+
+            <!-- Chat Window -->
+            <div id="chat-window" class="flex-1 p-6 space-y-4 overflow-y-auto text-base">
+                <div class="flex justify-start">
+                    <div class="ai-bubble shadow-md">
+                        <i data-lucide="bot" class="inline w-5 h-5 mr-2"></i>
+                        Hello! I am your confidential **MediAI Virtual Assistant**. Please **Save Your Details** in the sidebar (1) to personalize your guidance. You can adjust language and accessibility settings using the **Accessibility (10) button** in the top right corner. How can I help you with your health today?
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-4 border-t bg-gray-50">
+                <div class="flex space-x-3">
+                    <input type="text" id="user-input" placeholder="Ask a health question, like 'Why do I have a sore throat?'" 
+                           class="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-teal-500 focus:border-teal-500 shadow-inner transition duration-150">
+                    <button id="send-btn" onclick="sendMessage()" 
+                            class="bg-teal-600 text-white p-3 rounded-xl shadow-lg hover:bg-teal-700 transition duration-150 flex items-center justify-center disabled:opacity-50" disabled>
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                
+                <!-- Loading Indicator (UX Improvement) -->
+                <p id="loading-indicator" class="text-sm text-teal-600 mt-2 flex items-center hidden">
+                    <i data-lucide="loader-circle" class="w-4 h-4 mr-1 animate-spin"></i> MediAI is processing...
+                </p>
+
+                <p class="text-xs text-gray-400 mt-1">
+                    **Feature 14 (Education & Awareness):** I provide information based on general medical knowledge and the latest verified web results. Always consult a licensed doctor for diagnosis.
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal for Dynamic Interactions (e.g., Log Reading, Appointment Booking) -->
+    <div id="app-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white p-8 rounded-2xl shadow-3xl w-full max-w-lg transform transition-all">
+            <div class="flex justify-between items-center mb-5 border-b pb-3">
+                <h3 id="modal-title" class="text-2xl font-bold text-teal-600">Action</h3>
+                <button onclick="hideModal('app-modal')" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
+                    <i data-lucide="x" class="w-7 h-7"></i>
+                </button>
+            </div>
+            <div id="modal-content" class="space-y-4">
+                <!-- Content injected here by quickAction() -->
+            </div>
+            <div id="modal-footer" class="mt-8 text-right">
+                <button onclick="hideModal('app-modal')" class="px-5 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-medium">Done</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Feature 10: Accessibility Modal -->
+    <div id="accessibility-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white p-8 rounded-2xl shadow-3xl w-full max-w-lg transform transition-all">
+            <div class="flex justify-between items-center mb-5 border-b pb-3">
+                <h3 class="text-2xl font-bold text-teal-600">Language & Accessibility (10)</h3>
+                <button onclick="hideModal('accessibility-modal')" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
+                    <i data-lucide="x" class="w-7 h-7"></i>
+                </button>
+            </div>
+            <div class="space-y-6">
+                <!-- Language Selector -->
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2 flex items-center"><i data-lucide="languages" class="w-5 h-5 mr-2 text-indigo-600"></i> Multi-Language Support</h4>
+                    <p class="text-sm text-gray-600 mb-3">Select your preferred language. The AI will respond entirely in this language.</p>
+                    <div class="flex items-center space-x-3">
+                        <select id="language-selector" onchange="setLanguage(this.value)" class="p-3 border rounded-lg flex-1 focus:ring-teal-500">
+                            <option value="English">English (Current)</option>
+                            <option value="Hindi">Hindi (हिन्दी)</option>
+                            <option value="Telugu">Telugu (తెలుగు)</option>
+                            <option value="Bengali">Bengali (বাংলা)</option>
+                        </select>
+                        <button onclick="setLanguage(document.getElementById('language-selector').value)" class="p-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Apply</button>
+                    </div>
+                </div>
+
+                <!-- Accessibility Settings -->
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2 flex items-center border-t pt-4"><i data-lucide="eye" class="w-5 h-5 mr-2 text-teal-600"></i> Visual Accessibility</h4>
+                    
+                    <!-- High Contrast Toggle -->
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border my-3">
+                        <span class="font-medium text-gray-700">High Contrast Mode</span>
+                        <button id="contrast-toggle" onclick="toggleHighContrast()" class="px-3 py-1 text-sm rounded-full bg-gray-300 text-gray-800 hover:bg-gray-400 transition">OFF</button>
+                    </div>
+
+                    <!-- Text Size Control -->
+                    <div class="bg-gray-50 p-3 rounded-lg border">
+                        <span class="font-medium text-gray-700 block mb-2">Text Size Adjustment</span>
+                        <div class="flex justify-between items-center space-x-3">
+                            <button onclick="adjustTextSize('decrease')" class="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition" title="Decrease Text Size"><i data-lucide="zoom-out" class="w-5 h-5"></i></button>
+                            <span id="text-size-status" class="font-bold text-lg">Default</span>
+                            <button onclick="adjustTextSize('increase')" class="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition" title="Increase Text Size"><i data-lucide="zoom-in" class="w-5 h-5"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 text-right">
+                <button onclick="hideModal('accessibility-modal')" class="px-5 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 font-medium shadow-lg">Close Settings</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- Global Variables and Constants ---
+    const chatWindow = document.getElementById('chat-window');
+    const sendBtn = document.getElementById('send-btn');
+    const userInput = document.getElementById('user-input');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const appBody = document.getElementById('app-body');
+    const chatContent = document.getElementById('chat-window');
+    const contrastToggleBtn = document.getElementById('contrast-toggle');
+    const textSizeStatus = document.getElementById('text-size-status');
+    
+    // Mandatorily provided context variables
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    
+    // API key is left empty as the canvas environment provides it at runtime
+    const apiKey = "AIzaSyCrox91vDJ3J6wCZLziGs7RT8NLiNPwHvk"; 
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+    let patientDetails = null;
+    let languageMode = 'English'; // Default
+    let fontSizeLevel = 0; // 0: Default, 1: Large, 2: X-Large
+    const fontClasses = ['text-base', 'text-lg', 'text-xl'];
+    let chatHistory = [
+        { role: "model", parts: [{ text: "Hello! I am your confidential **MediAI Virtual Assistant**. Please **Save Your Details** in the sidebar (1) to personalize your guidance. You can adjust language and accessibility settings using the **Accessibility (10) button** in the top right corner. How can I help you with your health today?" }] }
+    ];
+
+    // --- Core AI Agent Prompt and Configuration (Features 1-14) ---
+    function getSystemInstruction() {
+        let personalContext = patientDetails ? 
+            `\n\n[PATIENT PROFILE] Name: ${patientDetails.name}, Age: ${patientDetails.age}, Weight: ${patientDetails.weight}kg, Address: ${patientDetails.address}.` : 
+            '';
+        
+        const coreInstruction = `You are a professional, empathetic, and confidential AI Virtual Medical Support Agent named 'MediAI Virtual Assistant'.
+Your primary role is to provide health guidance, triage symptoms, offer mental health support, and manage chronic conditions. Your capabilities include:
+1. Personalized Assistance (using patient profile).
+2. Symptom Checker & Risk Assessment.
+3. Medicine Support (dosage, side effects, interactions).
+4. Appointment & Follow-Up Scheduling.
+5. Chronic Disease Management & Logging.
+6. Mental Health & Emotional Support.
+7. Medical Record Assistant (summarizing history, storing chat record).
+8. Doctor Connection & Telehealth Triage.
+9. Emergency Alert Protocol.
+10. Multi-Language & Accessibility Support.
+11. Post-Treatment Care Planning.
+12. Preventive Health Coaching.
+13. Privacy & Trust Maintenance.
+14. Education & Awareness (using grounded, verified information).
+
+Crucial Rules:
+1. NEVER provide a definitive medical diagnosis or prescribe medication. Always advise the user to consult a licensed healthcare professional for any serious or urgent concerns.
+2. For symptom checking, always include a Risk Assessment (Mild, Moderate, or Urgent) and state explicitly when a doctor visit is recommended (Feature 2).
+3. Use Google Search (grounding) for up-to-date and verified health information (Feature 14).
+4. If a prompt suggests critical symptoms (chest pain, severe difficulty breathing, sudden unconsciousness), immediately flag it as URGENT and prompt the user to call emergency services (Feature 9).
+5. Ensure your response is friendly, easy to understand (Feature 10), and directly answers the user's query while maintaining empathy (Feature 6).
+6. Current preferred language: ${languageMode}. Respond entirely in this language.`;
+
+        return coreInstruction + personalContext;
+    }
+
+    // --- Utility Functions ---
+    
+    // Exponential Backoff for API calls
+    async function fetchWithRetry(url, options, maxRetries = 5) {
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const response = await fetch(url, options);
+                if (response.status !== 429) { // 429 is Too Many Requests
+                    return response;
+                }
+                // Handle 429 error with backoff
+                const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                console.warn(`Attempt ${attempt + 1}: Rate limit exceeded (429). Retrying in ${delay / 1000}s...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } catch (error) {
+                console.error(`Attempt ${attempt + 1}: Fetch failed. Retrying in ${Math.pow(2, attempt)}s...`, error);
+                if (attempt === maxRetries - 1) throw error;
+                const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+        throw new Error('Maximum retries reached.');
+    }
+
+    function generateChatBubble(text, role, sources = []) {
+        const bubbleClass = role === 'user' ? 'user-bubble' : 'ai-bubble';
+        const alignmentClass = role === 'user' ? 'justify-end' : 'justify-start';
+        
+        let sourceHtml = '';
+        if (sources.length > 0 && role !== 'user') {
+            sourceHtml = `<div class="text-xs text-gray-500 mt-2 pt-2 border-t border-teal-200">
+                <p class="font-semibold">Sources (Feature 14):</p>
+                <ul class="list-disc list-inside space-y-0.5">
+                    ${sources.slice(0, 3).map(s => `<li><a href="${s.uri}" target="_blank" class="text-teal-600 hover:underline">${s.title.substring(0, 50)}${s.title.length > 50 ? '...' : ''}</a></li>`).join('')}
+                </ul>
+            </div>`;
+        }
+
+        const newChat = document.createElement('div');
+        newChat.className = `flex ${alignmentClass}`;
+        newChat.innerHTML = `
+            <div class="${bubbleClass} shadow-lg">
+                ${role === 'model' ? '<i data-lucide="bot" class="inline w-5 h-5 mr-1 align-sub"></i>' : ''}
+                <div class="prose max-w-none">${text}</div>
+                ${sourceHtml}
+            </div>
+        `;
+        chatWindow.appendChild(newChat);
+        lucide.createIcons(); // Re-render lucide icons
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    // --- Feature 10: Multi-Language & Accessibility Implementation ---
+    
+    function showAccessibilityModal() {
+        showModal('accessibility-modal');
+    }
+
+    function setLanguage(newLanguage) {
+        if (languageMode !== newLanguage) {
+            languageMode = newLanguage;
+            document.getElementById('language-selector').value = newLanguage;
+
+            const langStatusBar = document.getElementById('language-status-bar');
+            const langStatusText = document.getElementById('language-status-text');
+            const langBtn = document.getElementById('language-btn');
+
+            if (languageMode !== 'English') {
+                langStatusText.textContent = `Language Mode: ${languageMode}. Responses will be in ${languageMode}. Speak to the AI in ${languageMode}!`;
+                langStatusBar.classList.remove('hidden');
+                langStatusBar.classList.add('flex');
+                langBtn.classList.remove('bg-teal-700/50');
+                langBtn.classList.add('bg-indigo-600'); 
+            } else {
+                langStatusText.textContent = `Language Mode: English. Responses will be in English.`;
+                langStatusBar.classList.add('hidden');
+                langStatusBar.classList.remove('flex');
+                langBtn.classList.add('bg-teal-700/50'); 
+                langBtn.classList.remove('bg-indigo-600');
+            }
+            
+            // Notify user in chat
+            generateChatBubble(`Language mode successfully switched to **${languageMode}**. All subsequent responses will be provided in this language.`, 'model');
+        }
+    }
+
+    function toggleHighContrast() {
+        const isActive = appBody.classList.toggle('high-contrast');
+        
+        // Update button text and style
+        contrastToggleBtn.textContent = isActive ? 'ON' : 'OFF';
+        contrastToggleBtn.classList.remove(isActive ? 'bg-gray-300' : 'bg-green-600');
+        contrastToggleBtn.classList.add(isActive ? 'bg-green-600' : 'bg-gray-300');
+        contrastToggleBtn.classList.remove(isActive ? 'text-gray-800' : 'text-white');
+        contrastToggleBtn.classList.add(isActive ? 'text-white' : 'text-gray-800');
+
+        generateChatBubble(`High Contrast Mode has been **${isActive ? 'ACTIVATED' : 'DEACTIVATED'}** for improved visual accessibility.`, 'model');
+    }
+    
+    function adjustTextSize(direction) {
+        chatContent.classList.remove(...fontClasses);
+        
+        if (direction === 'increase' && fontSizeLevel < fontClasses.length - 1) {
+            fontSizeLevel++;
+        } else if (direction === 'decrease' && fontSizeLevel > 0) {
+            fontSizeLevel--;
+        }
+
+        chatContent.classList.add(fontClasses[fontSizeLevel]);
+        
+        const statusNames = ['Default', 'Large', 'Extra Large'];
+        textSizeStatus.textContent = statusNames[fontSizeLevel];
+        
+        // Update text size status in a subtle chat bubble (optional, but good for feedback)
+        // generateChatBubble(`Text size adjusted to: **${statusNames[fontSizeLevel]}**`, 'model');
+    }
+
+    // Feature 9: Emergency Help
+    function emergencyHelp() {
+        const criticalMessage = `
+            <h4 class="font-bold text-red-700">🚨 URGENT EMERGENCY PROTOCOL ACTIVATED (Feature 9)</h4>
+            <p>If you or someone you know is experiencing severe symptoms (e.g., chest pain, difficulty breathing, stroke symptoms, major injury), **DO NOT WAIT** for AI guidance.</p>
+            <p class="text-xl font-extrabold my-2">CALL EMERGENCY SERVICES NOW.</p>
+            <p>While waiting, here is basic first-aid guidance for a common crisis (e.g., severe bleeding): Apply firm, direct pressure to the wound with a clean cloth.</p>
+            <p>Nearest Simulated Hospital Location: Apollo Hospital, Chennai (5km away).</p>
+        `;
+        generateChatBubble(criticalMessage, 'model');
+    }
+
+    // Features 3, 4, 5, 8, 11, 12: Quick Actions (Simulated UI)
+    function quickAction(actionType) {
+        showModal('app-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        modalContent.innerHTML = ''; // Clear previous content
+
+        switch(actionType) {
+            case 'symptoms': // Feature 2 (AI-backed)
+                modalTitle.textContent = "Symptom Checker & Risk Assessment (2)";
+                modalContent.innerHTML = `
+                    <p>Enter your current symptoms below (e.g., fever, body pain, dry cough). The AI will analyze and respond in the chat.</p>
+                    <textarea id="symptom-input" class="w-full p-3 border rounded-lg focus:ring-teal-500" rows="3" placeholder="List your symptoms..."></textarea>
+                    <button onclick="checkSymptoms()" class="w-full p-3 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 transition duration-150">Check Symptoms</button>
+                `;
+                break;
+            case 'medicine': // Feature 3: Medicine Support
+                modalTitle.textContent = "Medicine Support (3)";
+                modalContent.innerHTML = `
+                    <p>Ask the AI about your medicine (e.g., dosage, side effects, interactions) or request a refill.</p>
+                    <textarea id="medicine-input" class="w-full p-3 border rounded-lg focus:ring-green-500" rows="2" placeholder="e.g., What are the side effects of Metformin?"></textarea>
+                    <button onclick="askMedicine()" class="w-full p-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition duration-150">Ask AI</button>
+                    <p class="text-xs mt-3">Refill Request: <span class="text-green-600 font-medium cursor-pointer hover:underline">Click here to reorder (Simulated).</span></p>
+                `;
+                break;
+            case 'appointment': // Feature 4: Appointment & Follow-Up Help
+                modalTitle.textContent = "Appointment & Follow-Up (4)";
+                modalContent.innerHTML = `
+                    <p>This is a simulated booking service. Use this for **Appointment Help** and **Follow-Up Help**.</p>
+                    <p class="font-medium mt-3">Online Consultations Available:</p>
+                    <ul class="list-disc list-inside ml-4 space-y-1 text-sm">
+                        <li>Dr. S. Priya (General Physician) - Available Today, 3:00 PM</li>
+                        <li>Dr. R. Khan (Cardiologist) - Available Friday, 10:00 AM</li>
+                    </ul>
+                    <button class="w-full p-3 bg-amber-600 text-white rounded-xl mt-4 font-semibold hover:bg-amber-700 transition duration-150">Book Now (Simulated)</button>
+                    <p class="text-xs mt-3">**Reminder Service:** We send reminders for your next scheduled check-up (Follow-Up Help - 4).</p>
+                `;
+                break;
+            case 'log_chronic': // Feature 5/12: Chronic Disease Management & Preventive Health
+                modalTitle.textContent = "Chronic Disease Manager & Preventive Health (5/12)";
+                modalContent.innerHTML = `
+                    <p>Log a daily reading for personalized coaching (AI Tip - 5) and **Preventive Health** coaching (12).</p>
+                    <label for="reading-type" class="block font-medium">Reading Type</label>
+                    <select id="reading-type" class="w-full p-3 border rounded-lg focus:ring-rose-500">
+                        <option value="Blood Pressure">Blood Pressure</option>
+                        <option value="Blood Sugar">Blood Sugar</option>
+                        <option value="Steps">Steps (Preventive Health - 12)</option>
+                    </select>
+                    <input type="text" id="reading-value" placeholder="Enter Value (e.g., 120/80 or 150 mg/dL)" class="w-full p-3 border rounded-lg focus:ring-rose-500">
+                    <button onclick="logReading()" class="w-full p-3 bg-rose-600 text-white rounded-xl mt-4 font-semibold hover:bg-rose-700 transition duration-150">Log & Get AI Tip</button>
+                `;
+                break;
+            case 'mental': // Feature 6: Mental Health Support (AI-backed)
+                modalTitle.textContent = "Mental Health & Emotional Support (6)";
+                modalContent.innerHTML = `
+                    <p>The AI Agent is here to listen empathetically. Start by sharing how you feel, or try a guided exercise.</p>
+                    <button onclick="startMindfulness()" class="w-full p-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition duration-150">Start 3-Minute Breathing Exercise</button>
+                    <p class="text-xs mt-3">Need human connection? <a href="#" class="text-indigo-600 font-medium hover:underline">Connect to Real Counselor Helpline (Simulated)</a>.</p>
+                `;
+                break;
+            case 'records': // Feature 7: Medical Record Assistant
+                modalTitle.textContent = "Medical Record Assistant (7)";
+                modalContent.innerHTML = `
+                    <p>**Simulated Access:** This securely accesses and summarizes your past medical history (prescriptions, labs, visits).</p>
+                    <p class="font-medium mt-3">Latest Record Summary:</p>
+                    <ul class="list-disc list-inside ml-4 space-y-1 text-sm bg-purple-50 p-3 rounded-lg border border-purple-200">
+                        <li>**Last Visit:** General Check-up (2 weeks ago)</li>
+                        <li>**Key Finding:** Vitamin D deficiency noted.</li>
+                        <li>**Active Prescription:** Vitamin D supplements (started 10 days ago).</li>
+                    </ul>
+                    <button onclick="requestRecordSummary()" class="w-full p-3 bg-purple-600 text-white rounded-xl mt-4 font-semibold hover:bg-purple-700 transition duration-150">Request AI Summary</button>
+                `;
+                break;
+            case 'doctor_connect': // Feature 8: Doctor Connection
+                modalTitle.textContent = "Doctor Connection (8)";
+                modalContent.innerHTML = `
+                    <p>Quickly connect with a professional for your health query. The AI can summarize your chat history for the doctor.</p>
+                    <p class="font-medium mt-3">Connection Options:</p>
+                    <ul class="list-disc list-inside ml-4 space-y-1 text-sm">
+                        <li>**Call a General Practitioner:** <span class="text-sky-600 font-medium">(Simulated Live Call)</span></li>
+                        <li>**Secure Video Consult:** Book a 15-minute video slot.</li>
+                    </ul>
+                    <button class="w-full p-3 bg-sky-600 text-white rounded-xl mt-4 font-semibold hover:bg-sky-700 transition duration-150">Connect Now (Simulated)</button>
+                `;
+                break;
+            case 'post_care': // Feature 11: Post Treatment Care
+                modalTitle.textContent = "Post-Treatment Care Plan (11)";
+                modalContent.innerHTML = `
+                    <p>Receive personalized instructions and guidance for **Post-Treatment Care** after a procedure or diagnosis.</p>
+                    <p class="font-medium mt-3">Active Plan: Knee Surgery Recovery (Day 5)</p>
+                    <ul class="list-disc list-inside ml-4 space-y-1 text-sm bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <li>**To Do:** Perform physiotherapy exercises 3x today.</li>
+                        <li>**Alert:** Time for next pain medication dose (2:00 PM).</li>
+                    </ul>
+                    <button onclick="requestPostCareTip()" class="w-full p-3 bg-slate-600 text-white rounded-xl mt-4 font-semibold hover:bg-slate-700 transition duration-150">Ask for Today's Tip</button>
+                `;
+                break;
+            default:
+                modalTitle.textContent = "Feature Details";
+                modalContent.innerHTML = "<p>Feature selected. Details and interactive elements would be shown here.</p>";
+        }
+        lucide.createIcons();
+    }
+
+    // Function to check symptoms (Feature 2) - Triggers API call
+    function checkSymptoms() {
+        const symptoms = document.getElementById('symptom-input').value;
+        if (symptoms) {
+            const prompt = `SYMPTOM CHECK: I have the following symptoms: "${symptoms}". Please provide: 1) Possible causes or related conditions, 2) A Risk Assessment (Mild, Moderate, or Urgent), and 3) Clear next steps, including when to see a doctor.`;
+            sendMessage(prompt);
+            hideModal('app-modal');
+        } else {
+            // Replaced alert() with a console log for best practice compliance
+            console.error('Please enter your symptoms.'); 
+        }
+    }
+    
+    // Function for Medicine Support (Feature 3) - Triggers API call
+    function askMedicine() {
+        const medicineQuery = document.getElementById('medicine-input').value;
+        if (medicineQuery) {
+            const prompt = `MEDICINE SUPPORT: The user has a query about medication: "${medicineQuery}". Please provide accurate and safe information on dosage, side effects, or interactions using Google Search grounding. (Feature 3)`;
+            sendMessage(prompt);
+            hideModal('app-modal');
+        } else {
+            console.error('Please enter a medicine query.'); 
+        }
+    }
+
+    // Function to log chronic reading (Feature 5, 12) - Triggers API call
+    function logReading() {
+        const type = document.getElementById('reading-type').value;
+        const value = document.getElementById('reading-value').value;
+        if (value) {
+            const prompt = `CHRONIC LOG: I just logged my ${type} reading as ${value}. Please analyze this reading and provide a personalized tip or alert me if the reading shows a dangerous trend. (Feature 5 & 12)`;
+            sendMessage(prompt);
+            hideModal('app-modal');
+        } else {
+            // Replaced alert() with a console log for best practice compliance
+            console.error('Please enter a value.');
+        }
+    }
+
+    // Function for mental health support (Feature 6) - Triggers API call
+    function startMindfulness() {
+        const prompt = `MENTAL HEALTH SUPPORT: Guide me through a brief (30-second to 1-minute) mindfulness or breathing exercise. Use a calming and empathetic tone. (Feature 6)`;
+        sendMessage(prompt);
+        hideModal('app-modal');
+    }
+    
+    // Function for Medical Record Assistant (Feature 7) - Triggers AI call
+    function requestRecordSummary() {
+        const prompt = `MEDICAL RECORD ASSISTANT: Please generate a concise, AI-driven summary of a simulated recent patient visit, including key findings and next steps. (Feature 7)`;
+        sendMessage(prompt);
+        hideModal('app-modal');
+    }
+
+    // Function for Post Treatment Care (Feature 11) - Triggers AI call
+    function requestPostCareTip() {
+        const prompt = `POST-TREATMENT CARE: Provide a personalized, empathetic tip for someone recovering from knee surgery who is on day 5 of recovery, focusing on mobility and comfort. (Feature 11)`;
+        sendMessage(prompt);
+        hideModal('app-modal');
+    }
+
+    // --- Modal Functions ---
+    function showModal(id) {
+        document.getElementById(id).classList.remove('hidden');
+        document.getElementById(id).classList.add('flex');
+    }
+
+    function hideModal(id) {
+        document.getElementById(id).classList.add('hidden');
+        document.getElementById(id).classList.remove('flex');
+    }
+
+    // --- Patient Details Management (Feature 13) ---
+    document.getElementById('patient-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        patientDetails = {
+            name: document.getElementById('p_name').value,
+            age: document.getElementById('p_age').value,
+            weight: document.getElementById('p_weight').value,
+            address: document.getElementById('p_address').value,
+            contact: document.getElementById('p_contact').value,
+        };
+
+        const summaryDiv = document.getElementById('details-summary');
+        summaryDiv.innerHTML = `
+            <p class="font-bold text-lg">Welcome, ${patientDetails.name}!</p>
+            <p class="text-sm">Age: ${patientDetails.age} | Weight: ${patientDetails.weight}kg</p>
+            <p class="text-xs text-blue-500 mt-2">Details saved for contextual guidance (Feature 1).</p>
+        `;
+        summaryDiv.classList.remove('hidden');
+        document.getElementById('patient-form').classList.add('hidden');
+        sendBtn.disabled = false;
+        userInput.placeholder = `Welcome ${patientDetails.name}, what are your health concerns?`;
+
+        generateChatBubble(`Thank you for saving your details, ${patientDetails.name}. Your profile is now active. I can now provide more personalized guidance.`, 'model');
+    });
+
+    // --- Main AI Chat Function ---
+
+    async function sendMessage(manualPrompt = null) {
+        let text = manualPrompt || userInput.value.trim();
+        if (!text) return;
+        
+        // Disable input and show loading (UX Improvement)
+        userInput.value = '';
+        sendBtn.disabled = true;
+        userInput.placeholder = "Agent is processing...";
+        loadingIndicator.classList.remove('hidden'); // Show loading
+
+        // Add user message to UI and history
+        generateChatBubble(text, 'user');
+        chatHistory.push({ role: "user", parts: [{ text: text }] });
+
+        try {
+            const systemInstruction = getSystemInstruction();
+
+            const payload = {
+                contents: chatHistory,
+                // Feature 1, 2, 5, 14: Use Google Search for grounded, current medical information
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+            };
+
+            const response = await fetchWithRetry(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+            
+            let aiText = "I apologize, I could not process your request at this time. Please try again or consult a doctor.";
+            let sources = [];
+
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                aiText = candidate.content.parts[0].text;
+                
+                // Extract grounding sources (Feature 14)
+                const groundingMetadata = candidate.groundingMetadata;
+                if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                    sources = groundingMetadata.groundingAttributions
+                        .map(attribution => ({
+                            uri: attribution.web?.uri,
+                            title: attribution.web?.title,
+                        }))
+                        .filter(source => source.uri && source.title); 
+                }
+            }
+            
+            // Add AI response to UI and history (Feature 7: Keep chat record)
+            generateChatBubble(aiText, 'model', sources);
+            chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+
+        } catch (error) {
+            console.error('AI API Error:', error);
+            generateChatBubble("I'm sorry, I'm currently unable to connect to my intelligence center. Please check your network or try again shortly.", 'model');
+        } finally {
+            // Re-enable input and hide loading
+            sendBtn.disabled = false;
+            userInput.placeholder = "Ask a health question, like 'Why do I have a sore throat?'";
+            loadingIndicator.classList.add('hidden'); // Hide loading
+        }
+    }
+
+    // Listen for Enter keypress   
+    userInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !sendBtn.disabled) {
+            sendMessage();
+        }
+    });
+
+    // Initial setup (run Lucide icon rendering)
+    window.onload = () => {
+        lucide.createIcons();
+        console.log("AI Agent Initialized. Please enter patient details to enable chat.");
+        // Set initial font size class
+        chatContent.classList.add(fontClasses[fontSizeLevel]); 
+    };
+
+</script>
+</body>
+</html>
